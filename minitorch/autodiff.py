@@ -22,7 +22,16 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
     Returns:
         An approximation of $f'_i(x_0, \ldots, x_{n-1})$
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    val_l = vals[arg] - epsilon
+    val_r = vals[arg] + epsilon
+    
+    tup_l = vals[:arg] + (val_l,) + vals[arg + 1:]
+    tup_r = vals[:arg] + (val_r,) + vals[arg + 1:]
+    
+    f_l = f(tup_l)
+    f_r = f(tup_r)
+    
+    return (f_r - f_l) / (2 * epsilon)
 
 
 variable_count = 1
@@ -60,7 +69,14 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     Returns:
         Non-constant Variables in topological order starting from the right.
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    res = [variable]
+    parents = variable.parents
+    if parents:
+        for parent_node in parents:
+            if not parent_node.is_constant():
+                this_parent_sorted = topological_sort(parent_node)
+                res += this_parent_sorted
+    return res       
 
 
 def backpropagate(variable: Variable, deriv: Any) -> None:
@@ -74,7 +90,23 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    derivatives_dict = {variable.unique_id: deriv}
+    
+    sorted_list = topological_sort(variable)
+    
+    for curr_variable in sorted_list:
+        if curr_variable.is_leaf():
+            continue
+        curr_derivatives = curr_variable.chain_rule(derivatives_dict[curr_variable.unique_id])
+        
+        for this_variable, this_derivative in curr_derivatives:
+            if this_variable.is_leaf():
+                this_variable.accumulate_derivative(this_derivative)  
+            else:
+                if this_variable.unique_id not in derivatives_dict:
+                    derivatives_dict[this_variable.unique_id] = this_derivative  
+                else:
+                    derivatives_dict[this_variable.unique_id] += this_derivative
 
 
 @dataclass
