@@ -45,7 +45,7 @@ def tensor_data(
     shape: Optional[UserShape] = None,
 ) -> TensorData:
     if shape is None:
-        shape = draw(shapes())
+        shape = draw((shapes()))
     size = int(minitorch.prod(shape))
     data = draw(lists(numbers, min_size=size, max_size=size))
     permute: List[int] = draw(permutations(range(len(shape))))
@@ -73,6 +73,9 @@ def tensors(
     shape: Optional[UserShape] = None,
 ) -> Tensor:
     backend = minitorch.SimpleBackend if backend is None else backend
+    # print(shape[0])
+    # shape = tuple(int(x) for x in list(shape))
+    # print(shape[0])
     td = draw(tensor_data(numbers, shape=shape))
     return minitorch.Tensor(td, backend=backend)
 

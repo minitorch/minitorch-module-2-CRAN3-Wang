@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Tuple
+from typing import Any, Iterable, Tuple
 
 from typing_extensions import Protocol
 
@@ -22,7 +22,16 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
     Returns:
         An approximation of $f'_i(x_0, \ldots, x_{n-1})$
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    val_l = vals[arg] - epsilon
+    val_r = vals[arg] + epsilon
+    
+    tup_l = vals[:arg] + (val_l,) + vals[arg + 1:]
+    tup_r = vals[:arg] + (val_r,) + vals[arg + 1:]
+    
+    f_l = f(tup_l)
+    f_r = f(tup_r)
+    
+    return (f_r - f_l) / (2 * epsilon)
 
 
 variable_count = 1
@@ -52,15 +61,37 @@ class Variable(Protocol):
 
 def topological_sort(variable: Variable) -> Iterable[Variable]:
     """
-    Computes the topological order of the computation graph.
+    Computes the topological order of the computation graph using a depth-first search (DFS) approach.
+    This function ensures that each variable is processed only after all variables that depend on it have been processed.
 
     Args:
-        variable: The right-most variable
+        variable: The right-most variable from which to start the sort, typically the final output variable of the graph.
 
     Returns:
-        Non-constant Variables in topological order starting from the right.
+        An iterable of non-constant Variables in topological order, starting from the given variable and moving backwards.
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    visited = set()  # Set to keep track of visited nodes
+    stack = []  # Stack to hold the topologically sorted variables
+
+    def dfs(v: Variable) -> None:
+        """Helper function to perform DFS"""
+        if v.unique_id in visited:
+            return
+        visited.add(v.unique_id)
+
+        # Iterate over the parents of the current variable
+        for parent in v.parents:
+            if not parent.is_constant():  # Only consider non-constant variables
+                dfs(parent)
+
+        stack.append(v)  # Append the variable to the stack after processing its parents
+
+    # Start DFS from the given variable
+    dfs(variable)
+
+    # Since we want the elements in topological order starting from the right,
+    # we need to reverse the stack because the deepest dependent variables are at the top.
+    return reversed(stack)
 
 
 def backpropagate(variable: Variable, deriv: Any) -> None:
@@ -74,7 +105,23 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    derivatives_dict = {variable.unique_id: deriv}
+    
+    sorted_list = topological_sort(variable)
+    
+    for curr_variable in sorted_list:
+        if curr_variable.is_leaf():
+            continue
+        curr_derivatives = curr_variable.chain_rule(derivatives_dict[curr_variable.unique_id])
+        
+        for this_variable, this_derivative in curr_derivatives:
+            if this_variable.is_leaf():
+                this_variable.accumulate_derivative(this_derivative)  
+            else:
+                if this_variable.unique_id not in derivatives_dict:
+                    derivatives_dict[this_variable.unique_id] = this_derivative  
+                else:
+                    derivatives_dict[this_variable.unique_id] += this_derivative
 
 
 @dataclass
