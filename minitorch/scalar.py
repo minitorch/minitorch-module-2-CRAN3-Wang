@@ -158,6 +158,33 @@ class Scalar:
         return self.history.inputs
 
     def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+        """
+        Apply the chain rule to compute gradients for the inputs to this variable's
+        function based on the output gradient.
+
+        This method is crucial in the backward pass of automatic differentiation.
+        It computes and accumulates gradients for each input variable involved in
+        the last function that computed this variable's value.
+
+        Args:
+            d_output (Any): The derivative of the output with respect to this
+                            variable. This is often the gradient flowing from the
+                            output of the computation graph back to this variable.
+
+        Returns:
+            Iterable[Tuple[Variable, Any]]: A list of tuples where each tuple
+                                            contains a variable and the gradient
+                                            with respect to that variable. The list
+                                            includes all variables that are not
+                                            constants and thus need their gradients
+                                            updated.
+
+        Raises:
+            AssertionError: If the variable does not have a history attribute set,
+                            or if the last function or context is None, which would
+                            imply that the variable was not created as a result of a
+                            function that supports backpropagation.
+        """
         h = self.history
         assert h is not None
         assert h.last_fn is not None
@@ -196,7 +223,7 @@ def derivative_check(f: Any, *scalars: Scalar) -> None:
 Derivative check at arguments f(%s) and received derivative f'=%f for argument %d,
 but was expecting derivative f'=%f from central difference."""
     for i, x in enumerate(scalars):
-        check = central_difference(f, *scalars, arg=i)
+        check = central_difference(f, *scalars, arg=i)  # type: ignore
         print(str([x.data for x in scalars]), x.derivative, i, check)
         assert x.derivative is not None
         np.testing.assert_allclose(

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Tuple
+from typing import Any, Iterable, Tuple
 
 from typing_extensions import Protocol
 
@@ -61,22 +61,37 @@ class Variable(Protocol):
 
 def topological_sort(variable: Variable) -> Iterable[Variable]:
     """
-    Computes the topological order of the computation graph.
+    Computes the topological order of the computation graph using a depth-first search (DFS) approach.
+    This function ensures that each variable is processed only after all variables that depend on it have been processed.
 
     Args:
-        variable: The right-most variable
+        variable: The right-most variable from which to start the sort, typically the final output variable of the graph.
 
     Returns:
-        Non-constant Variables in topological order starting from the right.
+        An iterable of non-constant Variables in topological order, starting from the given variable and moving backwards.
     """
-    res = [variable]
-    parents = variable.parents
-    if parents:
-        for parent_node in parents:
-            if not parent_node.is_constant():
-                this_parent_sorted = topological_sort(parent_node)
-                res += this_parent_sorted
-    return res       
+    visited = set()  # Set to keep track of visited nodes
+    stack = []  # Stack to hold the topologically sorted variables
+
+    def dfs(v: Variable) -> None:
+        """Helper function to perform DFS"""
+        if v.unique_id in visited:
+            return
+        visited.add(v.unique_id)
+
+        # Iterate over the parents of the current variable
+        for parent in v.parents:
+            if not parent.is_constant():  # Only consider non-constant variables
+                dfs(parent)
+
+        stack.append(v)  # Append the variable to the stack after processing its parents
+
+    # Start DFS from the given variable
+    dfs(variable)
+
+    # Since we want the elements in topological order starting from the right,
+    # we need to reverse the stack because the deepest dependent variables are at the top.
+    return reversed(stack)
 
 
 def backpropagate(variable: Variable, deriv: Any) -> None:

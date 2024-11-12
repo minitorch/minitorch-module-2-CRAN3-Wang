@@ -61,7 +61,7 @@ class ScalarFunction:
 
         # Call forward with the variables.
         c = cls._forward(ctx, *raw_vals)
-        # assert isinstance(c, float), "Expected return type float got %s" % (type(c))
+        assert isinstance(c, float), "Expected return type float got %s" % (type(c))
 
         # Create a new variable from the result with a new history.
         back = minitorch.scalar.ScalarHistory(cls, ctx, scalars)
@@ -104,12 +104,12 @@ class Mul(ScalarFunction):
     @staticmethod
     def forward(ctx: Context, a: float, b: float) -> float:
         ctx.save_for_backward(a, b)
-        return operators.mul(a, b)
+        return a * b
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> Tuple[float, float]:
-        a, b = ctx.saved_values
-        return operators.mul(d_output, b), operators.mul(d_output, a)
+        (a, b) = ctx.saved_values
+        return d_output * b, d_output * a
 
 
 class Inv(ScalarFunction):
@@ -125,6 +125,7 @@ class Inv(ScalarFunction):
         (a,) = ctx.saved_values
         return operators.inv_back(a, d_output)
 
+
 class Neg(ScalarFunction):
     "Negation function"
 
@@ -134,7 +135,7 @@ class Neg(ScalarFunction):
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> float:
-        return operators.neg(d_output)
+        return -(d_output)
 
 
 class Sigmoid(ScalarFunction):
@@ -142,16 +143,15 @@ class Sigmoid(ScalarFunction):
 
     @staticmethod
     def forward(ctx: Context, a: float) -> float:
-        ctx.save_for_backward(a)
-        return operators.sigmoid(a)
+        result = operators.sigmoid(a)
+        ctx.save_for_backward(result)
+        return result
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> float:
-        (a,) = ctx.saved_values
-        sig_a = operators.sigmoid(a)
-        one_minus_sig_a = operators.add(1, operators.neg(sig_a))
-        derivative = operators.mul(sig_a, one_minus_sig_a)
-        return operators.mul(d_output, derivative)
+        (result,) = ctx.saved_values
+        assert isinstance(result, float), "Expected float from context saved values"
+        return d_output * result * (1 - result)
 
 
 class ReLU(ScalarFunction):
@@ -173,25 +173,31 @@ class Exp(ScalarFunction):
 
     @staticmethod
     def forward(ctx: Context, a: float) -> float:
-        ctx.save_for_backward(a)
-        return operators.exp(a)
+        result = operators.exp(a)
+        ctx.save_for_backward(result)
+        return result
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> float:
-        (a,) = ctx.saved_values
-        return operators.mul(operators.exp(a), d_output)
+        (result,) = ctx.saved_values
+        assert isinstance(result, float), "Expected float from context saved values"
+        return d_output * result
 
 
 class LT(ScalarFunction):
-    "Less-than function $f(x) =$ 1.0 if x is less than y else 0.0"
+    "Less-than function $f(x, y) =$ 1.0 if x < y else 0.0"
 
     @staticmethod
     def forward(ctx: Context, a: float, b: float) -> float:
-        return float(operators.lt(a, b))
+        result = operators.lt(a, b)
+        ctx.save_for_backward(a, b)
+        return result
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> Tuple[float, float]:
-        return 0.0, 0.0
+        # The gradient of a less-than operation is technically not defined,
+        # and in practice, we can treat them as zero since it is a comparison operation.
+        return (0.0, 0.0)
 
 
 class EQ(ScalarFunction):
@@ -199,8 +205,9 @@ class EQ(ScalarFunction):
 
     @staticmethod
     def forward(ctx: Context, a: float, b: float) -> float:
-        return float(operators.eq(a, b))
+        return operators.eq(a, b)
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> Tuple[float, float]:
-        return 0.0, 0.0
+        # Similarly, the gradient for equality checks is zero.
+        return (0.0, 0.0)

@@ -20,11 +20,10 @@ class Network(minitorch.Module):
         self.layer2 = Linear(hidden_layers, hidden_layers)
         self.layer3 = Linear(hidden_layers, 1)
 
-    def forward(self, x):
+    def forward(self, x: minitorch.Tensor):
         x = self.layer1.forward(x).relu()
         x = self.layer2.forward(x).relu()
-        x = self.layer3.forward(x).sigmoid()
-        return x
+        return self.layer3.forward(x).sigmoid()
 
 
 class Linear(minitorch.Module):
@@ -34,19 +33,32 @@ class Linear(minitorch.Module):
         self.bias = RParam(out_size)
         self.out_size = out_size
 
-    def forward(self, x):
-        assert(x.shape[-1] == self.weights.value.shape[0]), "Input size must match weight size"
-        
-        reshaped_weight = self.weights.value.view(1, *self.weights.value.shape)
-        reshaped_x = x.view(*x.shape, 1)
-        
-        batch_prod = reshaped_weight * reshaped_x
-        summed_prod = batch_prod.sum(dim=1).contiguous()
-        
-        reshaped_prod = summed_prod.view(x.shape[0], self.out_size)
-        reshaped_bias = self.bias.value.view(1, self.out_size)
-        
-        return reshaped_prod + reshaped_bias
+    def forward(self, x: minitorch.Tensor) -> minitorch.Tensor:
+        # Ensure the input dimensions match the expected input size
+        assert (
+            x.shape[-1] == self.weights.value.shape[0]
+        ), "Input size must match weight size"
+
+        # Reshape weights to prepare for matrix multiplication by adding a batch dimension
+        reshaped_weights = self.weights.value.view(1, *self.weights.value.shape)
+
+        # Reshape input tensor by adding an output dimension
+        reshaped_input = x.view(*x.shape, 1)
+
+        # Perform element-wise multiplication and then sum across the input dimension
+        # to perform a dot product equivalent for each sample in the batch
+        batch_product = reshaped_weights * reshaped_input
+        summed_product = batch_product.sum(dim=1).contiguous()
+
+        # Reshape the summed product to match the output dimension
+        # output_shape = (x.shape[0], self.out_size)  # Number of samples by output size
+        reshaped_output = summed_product.view(x.shape[0], self.out_size)
+
+        # Add bias to each output in the batch
+        # Bias is reshaped to match the batch output shape (1, out_size) for broadcasting
+        final_output = reshaped_output + self.bias.value.view(1, self.out_size)
+
+        return final_output
 
 
 def default_log_fn(epoch, total_loss, correct, losses):
@@ -101,7 +113,7 @@ class TensorTrain:
 
 if __name__ == "__main__":
     PTS = 50
-    HIDDEN = 2
+    HIDDEN = 3
     RATE = 0.5
     data = minitorch.datasets["Simple"](PTS)
     TensorTrain(HIDDEN).train(data, RATE)
