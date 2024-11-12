@@ -240,8 +240,8 @@ class TensorData:
         new_strides = []
         
         for i in order:
-            new_shape.append(self._shape[i])
-            new_strides.append(self._strides[i])
+            new_shape.append(self.shape[i])
+            new_strides.append(self.strides[i])
         return TensorData(self._storage, tuple(new_shape), tuple(new_strides))
 
     def to_string(self) -> str:

@@ -1,4 +1,5 @@
 from minitorch.tensor_data import shape_broadcast
+from tests.test_tensor import *
 
 if __name__ == "__main__":
-    shape_broadcast((1, 5, 5), (5, 5))
+    test_grad_reduce()
